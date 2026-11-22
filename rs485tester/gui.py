@@ -72,11 +72,35 @@ def card(master, **kw):
     return ctk.CTkFrame(master, fg_color=CARD, corner_radius=12, border_width=1, border_color=LINE, **kw)
 
 
+def autowrap(page, label, rule):
+    """Ajuste le retour à la ligne d'un texte à la largeur de la page (rule : largeur -> wraplength)."""
+    lst = page.__dict__.setdefault("_wraps", [])
+    lst.append((label, rule))
+    if len(lst) == 1:
+        def on_cfg(e):
+            try:
+                sc = ctk.ScalingTracker.get_widget_scaling(page)
+            except Exception:   # noqa
+                sc = 1.0
+            w = e.width / sc
+            if abs(w - page.__dict__.get("_wrap_w", -99)) < 4:
+                return
+            page._wrap_w = w
+            for lab, rl in page._wraps:
+                try:
+                    lab.configure(wraplength=max(200, int(rl(w))))
+                except tk.TclError:
+                    pass
+        page.bind("<Configure>", on_cfg, add="+")
+
+
 def page_title(master, title: str, sub: str, row: int = 0):
     ctk.CTkLabel(master, text=title, font=F(22, True), anchor="w").grid(row=row, column=0, columnspan=2,
                                                                          sticky="ew", padx=4, pady=(4, 0))
-    ctk.CTkLabel(master, text=sub, font=F(13), text_color=MUTED, anchor="w", justify="left",
-                 wraplength=980).grid(row=row + 1, column=0, columnspan=2, sticky="ew", padx=4, pady=(0, 12))
+    lab = ctk.CTkLabel(master, text=sub, font=F(13), text_color=MUTED, anchor="w", justify="left",
+                       wraplength=980)
+    lab.grid(row=row + 1, column=0, columnspan=2, sticky="ew", padx=4, pady=(0, 12))
+    autowrap(master, lab, lambda w: w - 30)
 
 
 def build_frame(text: str, mode: str, add_crc: bool) -> bytes:
@@ -630,12 +654,15 @@ class DiagPage(ctk.CTkScrollableFrame):
             box.grid(row=r, column=1, sticky="ew", pady=(10, 0))
             box.grid_columnconfigure(0, weight=1)
             ctk.CTkLabel(box, text=st.title, font=F(15, True), anchor="w").grid(row=0, column=0, sticky="w")
-            ctk.CTkLabel(box, text=st.what, font=F(12), text_color=MUTED, anchor="w", justify="left",
-                         wraplength=560).grid(row=1, column=0, sticky="w")
-            val = ctk.CTkLabel(self.list, text="", font=F(12), anchor="e", justify="right", wraplength=380)
+            what = ctk.CTkLabel(box, text=st.what, font=F(12), text_color=MUTED, anchor="w", justify="left",
+                                wraplength=560)
+            what.grid(row=1, column=0, sticky="w")
+            autowrap(self, what, lambda w: w - 420)
+            val = ctk.CTkLabel(self.list, text="", font=F(12), anchor="e", justify="right", wraplength=300)
             val.grid(row=r, column=2, sticky="e", padx=16, pady=(12, 0))
             adv = ctk.CTkLabel(self.list, text="", font=F(12), anchor="w", justify="left", text_color="#fcd34d",
                                wraplength=900)
+            autowrap(self, adv, lambda w: w - 110)
             adv.grid(row=r + 1, column=1, columnspan=2, sticky="ew", padx=(0, 16), pady=(2, 10))
             adv.grid_remove()
             sep = ctk.CTkFrame(self.list, height=1, fg_color=LINE)
@@ -784,8 +811,10 @@ class StreamPage(ctk.CTkScrollableFrame):
         for key, name, desc in PATTERNS:
             ctk.CTkRadioButton(left, text=name, value=key, variable=self.v_pat, font=F(13, True),
                                command=self.refresh).grid(row=r, column=0, sticky="w", padx=20, pady=(6, 0))
-            ctk.CTkLabel(left, text=desc, font=F(12), text_color=MUTED, anchor="w", justify="left",
-                         wraplength=330).grid(row=r + 1, column=0, sticky="w", padx=50)
+            dl = ctk.CTkLabel(left, text=desc, font=F(12), text_color=MUTED, anchor="w", justify="left",
+                              wraplength=330)
+            dl.grid(row=r + 1, column=0, sticky="w", padx=50)
+            autowrap(self, dl, lambda w: w / 2 - 90)
             r += 2
         cu = ctk.CTkFrame(left, fg_color="transparent")
         cu.grid(row=r, column=0, sticky="ew", padx=(48, 20), pady=(4, 0))
@@ -831,11 +860,12 @@ class StreamPage(ctk.CTkScrollableFrame):
             n = ctk.CTkLabel(t, text="", font=F(11), text_color=MUTED)
             n.pack(anchor="w", padx=12, pady=(0, 8))
             self.tiles[k] = (v, n)
-        ctk.CTkLabel(right, justify="left", anchor="w", font=F(12), text_color="#cbd5e1", wraplength=400, text=(
+        tips = ctk.CTkLabel(right, justify="left", anchor="w", font=F(12), text_color="#cbd5e1", wraplength=400, text=(
             "Réglage conseillé : déclenchement sur front DESCENDANT (le bit de start), mode Normal.\n"
             "Sonde 1 à l'entrée du module 1, sonde 2 à la sortie du module 2 : les deux signaux doivent être "
-            "identiques, simplement décalés dans le temps.")).grid(row=4, column=0, columnspan=2, sticky="ew",
-                                                                  padx=16, pady=(8, 4))
+            "identiques, simplement décalés dans le temps."))
+        tips.grid(row=4, column=0, columnspan=2, sticky="ew", padx=16, pady=(8, 4))
+        autowrap(self, tips, lambda w: w / 2 - 50)
         cnt = ctk.CTkFrame(right, fg_color="transparent")
         cnt.grid(row=5, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 4))
         cnt.grid_columnconfigure((0, 1, 2), weight=1)
@@ -849,6 +879,7 @@ class StreamPage(ctk.CTkScrollableFrame):
             v.pack(pady=(0, 8))
             self.cnt[k] = v
         self.lab_last = ctk.CTkLabel(right, text="", font=F(12), text_color=MUTED, wraplength=520, justify="left")
+        autowrap(self, self.lab_last, lambda w: w / 2 - 50)
         self.lab_last.grid(row=6, column=0, columnspan=2, sticky="w", padx=16, pady=(4, 14))
         self.frame = b""
         self.refresh()
@@ -1210,9 +1241,11 @@ class AdvancedPage(ctk.CTkScrollableFrame):
         body.grid(row=3, column=0, sticky="ew")
         body.grid_columnconfigure(0, weight=1)
         self.lab_desc = ctk.CTkLabel(body, text="", font=F(13), justify="left", anchor="w", wraplength=1000)
+        autowrap(self, self.lab_desc, lambda w: w - 50)
         self.lab_desc.grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 2))
         self.lab_osc = ctk.CTkLabel(body, text="", font=F(12), text_color="#fcd34d", justify="left", anchor="w",
                                     wraplength=1000)
+        autowrap(self, self.lab_osc, lambda w: w - 50)
         self.lab_osc.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
         self.diag = Redrawable(body, 150, self._draw)
         self.diag.grid(row=2, column=0, sticky="ew", padx=10, pady=4)
@@ -1227,6 +1260,7 @@ class AdvancedPage(ctk.CTkScrollableFrame):
         self.btn.grid(row=0, column=0)
         self.res = ctk.CTkLabel(act, text="", font=F(13, True), height=44, corner_radius=10, fg_color=CARD2,
                                 text_color=MUTED, anchor="w", justify="left", wraplength=760)
+        autowrap(self, self.res, lambda w: w - 300)
         self.res.grid(row=0, column=1, sticky="ew", padx=(12, 0))
 
         out = ctk.CTkFrame(self, fg_color="transparent")
@@ -1432,8 +1466,10 @@ class HelpPage(ctk.CTkScrollableFrame):
                 Redrawable(c, h, canvas).grid(row=row, column=0, sticky="ew", padx=10, pady=4)
                 row += 1
             if text:
-                ctk.CTkLabel(c, text=text, font=F(13), justify="left", anchor="w", wraplength=1000,
-                             text_color="#d1d5db").grid(row=row, column=0, sticky="ew", padx=16, pady=(2, 14))
+                tl = ctk.CTkLabel(c, text=text, font=F(13), justify="left", anchor="w", wraplength=1000,
+                                  text_color="#d1d5db")
+                tl.grid(row=row, column=0, sticky="ew", padx=16, pady=(2, 14))
+                autowrap(self, tl, lambda w: w - 50)
             return c
 
         section("1.  Le montage",
@@ -1465,8 +1501,10 @@ class HelpPage(ctk.CTkScrollableFrame):
         for i, (sym, fix) in enumerate(TROUBLE):
             ctk.CTkLabel(c, text=sym, font=F(13, True), anchor="w").grid(row=1 + i, column=0, sticky="w", padx=16,
                                                                          pady=3)
-            ctk.CTkLabel(c, text=fix, font=F(12), text_color="#d1d5db", anchor="w", justify="left",
-                         wraplength=650).grid(row=1 + i, column=1, sticky="w", padx=(10, 16), pady=3)
+            fl = ctk.CTkLabel(c, text=fix, font=F(12), text_color="#d1d5db", anchor="w", justify="left",
+                              wraplength=650)
+            fl.grid(row=1 + i, column=1, sticky="w", padx=(10, 16), pady=3)
+            autowrap(self, fl, lambda w: w - 330)
         c.grid_columnconfigure(1, weight=1)
         ctk.CTkFrame(c, height=8, fg_color="transparent").grid(row=20, column=0)
         section("6.  Essayer sans matériel",
