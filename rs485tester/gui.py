@@ -73,25 +73,41 @@ def card(master, **kw):
 
 
 def autowrap(page, label, rule):
-    """Ajuste le retour à la ligne d'un texte à la largeur de la page (rule : largeur -> wraplength)."""
+    """Ajuste le retour à la ligne d'un texte à la largeur disponible (rule : largeur -> wraplength).
+
+    La largeur de référence est celle du conteneur des pages (indépendante de la barre de défilement,
+    ce qui évite les boucles de redimensionnement) ; la mise à jour attend la fin du redimensionnement.
+    """
     lst = page.__dict__.setdefault("_wraps", [])
     lst.append((label, rule))
-    if len(lst) == 1:
-        def on_cfg(e):
+    if len(lst) > 1:
+        return
+    host = page.app.pages_host
+
+    def apply():
+        page._wrap_job = None
+        try:
+            sc = ctk.ScalingTracker.get_widget_scaling(host)
+        except Exception:   # noqa
+            sc = 1.0
+        w = host.winfo_width() / sc - 24              # place de la barre de défilement
+        if w < 100 or abs(w - page.__dict__.get("_wrap_w", -999)) < 20:
+            return
+        page._wrap_w = w
+        for lab, rl in page._wraps:
             try:
-                sc = ctk.ScalingTracker.get_widget_scaling(page)
-            except Exception:   # noqa
-                sc = 1.0
-            w = e.width / sc
-            if abs(w - page.__dict__.get("_wrap_w", -99)) < 4:
-                return
-            page._wrap_w = w
-            for lab, rl in page._wraps:
-                try:
-                    lab.configure(wraplength=max(200, int(rl(w))))
-                except tk.TclError:
-                    pass
-        page.bind("<Configure>", on_cfg, add="+")
+                lab.configure(wraplength=max(200, int(rl(w))))
+            except tk.TclError:
+                pass
+
+    def on_cfg(_e):
+        job = page.__dict__.get("_wrap_job")
+        if job:
+            page.after_cancel(job)
+        page._wrap_job = page.after(150, apply)
+
+    host.bind("<Configure>", on_cfg, add="+")
+    page.after(300, apply)
 
 
 def page_title(master, title: str, sub: str, row: int = 0):
