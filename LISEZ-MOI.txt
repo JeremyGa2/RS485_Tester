@@ -1,0 +1,39 @@
+RS485 Tester V6 - Diagnostic de liaison RS485
+=============================================
+
+AUCUNE INSTALLATION NÉCESSAIRE
+Ce dossier contient tout (Python et bibliothèques inclus). Il fonctionne
+sans Internet et sans droits administrateur, sur Windows 10 ou 11 (64 bits).
+
+1. Copiez tout le dossier RS485_Tester_V6 sur le PC (clé USB, réseau...).
+   Gardez le dossier entier : RS485_Tester.exe a besoin du sous-dossier _internal.
+2. Double-cliquez sur RS485_Tester.exe.
+   Astuce : clic droit > Envoyer vers > Bureau (créer un raccourci).
+3. Branchez les deux adaptateurs USB-RS485, choisissez le port A et le port B
+   en haut de la fenêtre, ainsi que la vitesse (9600 par défaut).
+4. Page "Diagnostic" : cliquez sur "Lancer le diagnostic".
+
+PAGES
+- Diagnostic      : contrôle complet en quelques secondes, avec un verdict et des conseils.
+- Envoi continu   : répète une trame sans arrêt pour l'oscilloscope et vérifie chaque réception.
+- Envoi manuel    : envoie une trame de A vers B (ou l'inverse) et compare l'envoyé et le reçu.
+- Tests avancés   : retournement, balayage des vitesses, latence, endurance (taux d'erreur).
+- Aide            : schémas, oscilloscope, problèmes fréquents.
+
+SI WINDOWS AFFICHE "Windows a protégé votre ordinateur"
+  Cliquez sur "Informations complémentaires", puis sur "Exécuter quand même".
+  (Le logiciel n'est pas signé numériquement.)
+
+SI LES ADAPTATEURS N'APPARAISSENT PAS DANS LA LISTE DES PORTS
+  Le pilote de l'adaptateur USB n'est pas installé sur ce PC (Windows le
+  télécharge normalement par Internet). Installez le pilote du fabricant
+  (ex. FTDI "CDM" ou Silicon Labs CP210x) depuis une clé USB.
+
+ADAPTATEURS FTDI : RÉGLAGE CONSEILLÉ
+  Gestionnaire de périphériques > Ports (COM et LPT) > votre port > Propriétés
+  > Paramètres du port > Avancé > Latency Timer = 1 ms.
+
+ESSAI SANS MATÉRIEL
+  Choisissez SIM-A et SIM-B comme ports : c'est une liaison simulée.
+
+Les réglages sont enregistrés dans %APPDATA%\RS485_COM_Tester.
