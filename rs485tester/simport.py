@@ -33,7 +33,7 @@ class SimLink:
         self.cond = threading.Condition()
         self.ports = {}
         self.line_free = {"A": 0.0, "B": 0.0}
-        self.bus_busy_until = {"A": 0.0, "B": 0.0}
+        self.bus_busy_until = {"A": float("-inf"), "B": float("-inf")}   # aucun module n'émet au départ
         self.rng = random.Random()
 
     def open(self, device: str, settings, timeout: float):

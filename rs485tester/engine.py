@@ -298,6 +298,9 @@ def test_turnaround(ctx: TestContext, p: dict) -> TestResult:
             reactions = []
             for i in range(reps):
                 ctx.check_stop()
+                # avant chaque essai : attendre au moins le plus long délai testé, pour que les modules
+                # aient relâché le bus (activité précédente) et que seul le retour soit mesuré
+                core.precise_sleep(max(delays) / 1000.0)
                 q = bytes((0xA0 + j + i) & mask for j in range(n))
                 resp = bytes((~x) & mask for x in q)
                 a.reset_input_buffer()
@@ -313,7 +316,6 @@ def test_turnaround(ctx: TestContext, p: dict) -> TestResult:
                     rr, _, _ = read_exact(a, n, rx_timeout(s, n), ctx.stop_event)
                     if rr == resp:
                         ok_back += 1
-                # laisser la ligne se vider avant l'essai suivant
                 drain(a, idle=0.005, max_time=0.05)
                 drain(b, idle=0.005, max_time=0.05)
                 k += 1
