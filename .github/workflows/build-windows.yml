@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -53,17 +56,16 @@ jobs:
           Copy-Item "LISEZ-MOI.txt" "package\RS485_Tester_V6\"
           Get-ChildItem "package\RS485_Tester_V6"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: RS485_Tester_V6
-          path: package
-          retention-days: 30
-
-      - uses: actions/upload-artifact@v4
+      - name: Publication (release privee du depot)
         if: always()
-        with:
-          name: verification
-          path: |
-            shots
-            smoke_src.json
-            smoke_exe.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (Test-Path "package\RS485_Tester_V6") { Compress-Archive -Path "package\RS485_Tester_V6" -DestinationPath "RS485_Tester_V6.zip" -Force }
+          New-Item -ItemType Directory -Force -Path verif | Out-Null
+          if (Test-Path shots) { Copy-Item -Recurse shots verif\ }
+          Copy-Item smoke_*.json verif\ -ErrorAction SilentlyContinue
+          Compress-Archive -Path "verif\*" -DestinationPath "verification.zip" -Force
+          $files = @("verification.zip")
+          if (Test-Path "RS485_Tester_V6.zip") { $files += "RS485_Tester_V6.zip" }
+          gh release create "build-${{ github.run_number }}" $files --title "Build ${{ github.run_number }}" --notes "Dossier pret a l'emploi : RS485_Tester_V6.zip" --target "${{ github.sha }}"

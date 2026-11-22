@@ -1,50 +1,34 @@
-# RS485 COM Tester V6
+# RS485 Tester V6
 
-Banc de test pour liaisons RS485. Configuration type : PC → adaptateur A → module 1 → fibre → module 2 → adaptateur B → PC.
-Tout ce qui est émis sur un port est comparé, octet par octet et bit par bit, à ce qui ressort sur l'autre.
+Simple diagnostic tool for an RS485 link. Typical setup: PC → adapter A → module 1 → fibre → module 2 → adapter B → PC.
+Whatever leaves one port is compared, byte by byte, with what arrives on the other.
 
-## Lancer
-- **Exe** : `dist\RS485_COM_tester_V6.exe`, autonome (Python et bibliothèques intégrés).
-- **Source** : `pip install -r requirements.txt`, puis `python RS485_COM_tester_V6.py`.
-- **Auto-tests sans matériel** : `python RS485_COM_tester_V6.py --selftest`.
+## Using it (target PC with no Python and no Internet)
+Copy the whole `RS485_Tester_V6` folder, then double-click `RS485_Tester.exe`. See `LISEZ-MOI.txt`.
 
-## Construire l'exe (sur un PC Windows)
-Double-cliquez `build_exe.bat`. Le script crée un environnement isolé, installe les dépendances, lance les
-auto-tests, puis produit `dist\RS485_COM_tester_V6.exe` avec PyInstaller (fichier `RS485_COM_tester_V6.spec`).
-
-## Onglets
-| Onglet | Rôle |
+## Pages
+| Page | What it does |
 |---|---|
-| **Tests** | 8 tests avec schéma, explication, repères oscilloscope, paramètres et tableau de résultats. Campagne des tests cochés et rapport HTML + CSV horodaté (opérateur, n° de série des modules, adaptateurs). |
-| **Générateur continu** | Émission en boucle d'une trame (HEX, ASCII, assistant Modbus RTU, CRC/XOR/somme) à période réglable, avec vérification en temps réel sur l'autre port. Affiche le signal UART attendu et les réglages oscilloscope. |
-| **Moniteur E/S** | Les deux ports ouverts, trames horodatées en HEX et ASCII, envoi manuel depuis A ou B avec comparaison automatique de la réception. |
-| **Guide & schémas** | Fonctionnement de la chaîne, trame UART, niveaux RS485, retournement, BER, procédure oscilloscope, réglages Windows. |
-| **Configuration** | Contrôle du sens (automatique ou RTS), écho local, liaison simulée SIM-A/SIM-B avec injection de défauts. |
+| **Diagnostic** | One click: A→B, B→A, all 256 byte values, Modbus frames, continuous load, transfer time. Gives a clear verdict and, if something fails, what to check. HTML report. |
+| **Envoi continu** | 3 choices: what to send, which direction, the pause between frames. Shows what you should see on the oscilloscope and counts every frame that arrives identical. |
+| **Envoi manuel** | Type a frame (HEX or text, optional Modbus CRC), send A→B or B→A, and get the IDENTICAL / DIFFERENT result. |
+| **Tests avancés** | Turnaround, speed sweep, detailed latency, endurance (bit error rate). |
+| **Aide** | Wiring, how to read the results, oscilloscope, common problems. |
 
-## Les tests
-1. **Connectivité A ↔ B** : trame courte dans les deux sens.
-2. **Intégrité** : 256 valeurs, 0x00, 0xFF, 0x55/0xAA, bits baladeurs, PRBS-15.
-3. **Modbus RTU** : requêtes et réponses réelles, CRC vérifié, silence t3,5.
-4. **Retournement** : balayage du délai de réponse pour trouver le minimum fiable.
-5. **Balayage des débits** : avec débit réel estimé pour les FTDI.
-6. **Latence** : horloge haute résolution, statistiques et histogramme.
-7. **Débit soutenu** : flux continu à 100 %, comparé au maximum théorique.
-8. **Endurance / BER** : paquets numérotés + CRC, BER mesuré ou borne à 95 %.
+## Building the Windows folder
+- **Automatic**: every push to the private GitHub repo runs `.github/workflows/build-windows.yml`. It runs the
+  auto-tests, a full pass over the interface on the simulated link (with screenshots), the build, and a check
+  of the built .exe. The "RS485_Tester_V6" artifact contains the ready-to-use folder.
+- **On a Windows PC with Python**: `build_exe.bat`.
 
-## Points importants
-- Adaptateurs FTDI : réglez le **Latency Timer à 1 ms** (Gestionnaire de périphériques → port → Avancé).
-- Le PC voit les données à travers l'USB. Les niveaux, les fronts et les temps en µs se mesurent à l'oscilloscope :
-  utilisez le générateur continu.
-- `AUDIT_V5.1.md` liste les erreurs de mesure et les bugs de la V5.1, corrigés ici.
-
-## Structure du code
+## Code
 ```
-RS485_COM_tester_V6.py     point d'entrée
-rs485tester/core.py        réglages, timings, CRC, motifs, comparaison, ports
-rs485tester/engine.py      tests, générateur, moniteur (sans interface)
-rs485tester/simport.py     liaison simulée (validation du testeur)
-rs485tester/diagrams.py    schémas
-rs485tester/report.py      rapport HTML / CSV
-rs485tester/gui.py         interface customtkinter
-tests/test_engine.py       auto-tests
+RS485_COM_tester_V6.py     entry point (--selftest, --smoke)
+rs485tester/diagnostic.py  one-click diagnostic
+rs485tester/engine.py      tests, continuous send, listening
+rs485tester/core.py        settings, timings, CRC, patterns, comparison
+rs485tester/simport.py     simulated link SIM-A / SIM-B
+rs485tester/gui.py         interface
+rs485tester/diagrams.py    diagrams
+rs485tester/report.py      HTML / CSV report
 ```
