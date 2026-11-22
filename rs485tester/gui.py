@@ -526,15 +526,14 @@ class App(ctk.CTk):
         self.logbox.grid_columnconfigure(0, weight=1)
         self.logbox.grid_rowconfigure(2, weight=1)
         # poignée : faire glisser vers le haut / le bas pour changer la hauteur
-        grip = tk.Frame(self.logbox, bg=LINE, height=6, cursor="sb_v_double_arrow")
+        grip = tk.Frame(self.logbox, bg="#4b5059", height=6, cursor="sb_v_double_arrow")
         grip.grid(row=0, column=0, columnspan=2, sticky="ew", padx=140, pady=(5, 0))
         grip.bind("<ButtonPress-1>", self._grip_start)
         grip.bind("<B1-Motion>", self._grip_move)
         top = ctk.CTkFrame(self.logbox, fg_color="transparent")
         top.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 0))
         top.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(top, text="Journal : chaque octet envoyé et reçu   (tirez la barre grise pour "
-                               "changer la hauteur)", font=F(12, True)).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(top, text="Journal détaillé", font=F(13, True)).grid(row=0, column=0, sticky="w")
         btn = dict(height=26, fg_color=CARD2, hover_color=LINE)
         ctk.CTkButton(top, text="A−", width=34, command=lambda: self._log_font(-1), **btn).grid(row=0, column=1,
                                                                                             padx=2)
