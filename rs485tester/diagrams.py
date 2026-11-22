@@ -77,7 +77,7 @@ def draw_topology(c, mode: str = "path_both", port_a: str = "Port A", port_b: st
              edge=MODULE_EDGE if is_mod else BOX_EDGE)
     cy = y + bh / 2
     # liaisons physiques
-    for i, lab in [(0, "USB"), (1, "A/B/GND"), (3, "A/B/GND"), (4, "USB")]:
+    for i, lab in [(0, "USB"), (1, "RS485"), (3, "RS485"), (4, "USB")]:
         x1, x2 = xs[i] + bw, xs[i + 1]
         c.create_line(x1, cy, x2, cy, fill=DIM, width=2)
         c.create_text((x1 + x2) / 2, cy - 8, text=lab, fill=DIM, font=FONT_S)

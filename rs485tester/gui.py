@@ -1489,7 +1489,7 @@ class HelpPage(ctk.CTkScrollableFrame):
             return c
 
         section("1.  Le montage",
-                "Le PC a deux ports série, c'est-à-dire deux adaptateurs USB ↔ RS485. Le port A est relié au "
+                "Le PC a deux ports série, c'est-à-dire deux adaptateurs USB-RS485. Le port A est relié au "
                 "module 1, le port B au module 2, et les modules sont reliés par les fibres. Tout ce que le PC "
                 "envoie sur un port doit ressortir à l'identique sur l'autre. Le logiciel compare l'envoyé et le "
                 "reçu octet par octet.",
