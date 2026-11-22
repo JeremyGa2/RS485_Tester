@@ -524,27 +524,43 @@ class App(ctk.CTk):
         self.btn_log.grid(row=0, column=3, padx=(8, 0))
         self.logbox = card(self)
         self.logbox.grid_columnconfigure(0, weight=1)
+        self.logbox.grid_rowconfigure(2, weight=1)
+        # poignée : faire glisser vers le haut / le bas pour changer la hauteur
+        grip = tk.Frame(self.logbox, bg=LINE, height=6, cursor="sb_v_double_arrow")
+        grip.grid(row=0, column=0, columnspan=2, sticky="ew", padx=140, pady=(5, 0))
+        grip.bind("<ButtonPress-1>", self._grip_start)
+        grip.bind("<B1-Motion>", self._grip_move)
         top = ctk.CTkFrame(self.logbox, fg_color="transparent")
-        top.grid(row=0, column=0, sticky="ew", padx=10, pady=(6, 0))
+        top.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(4, 0))
         top.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(top, text="Journal : chaque octet envoyé et reçu", font=F(12, True)).grid(row=0, column=0,
-                                                                                               sticky="w")
-        ctk.CTkButton(top, text="Exporter", width=80, height=26, fg_color=CARD2, hover_color=LINE,
-                      command=self._export_log).grid(row=0, column=1, padx=4)
-        ctk.CTkButton(top, text="Effacer", width=80, height=26, fg_color=CARD2, hover_color=LINE,
-                      command=lambda: self.logtxt.delete("1.0", "end")).grid(row=0, column=2, padx=4)
+        ctk.CTkLabel(top, text="Journal : chaque octet envoyé et reçu   (tirez la barre grise pour "
+                               "changer la hauteur)", font=F(12, True)).grid(row=0, column=0, sticky="w")
+        btn = dict(height=26, fg_color=CARD2, hover_color=LINE)
+        ctk.CTkButton(top, text="A−", width=34, command=lambda: self._log_font(-1), **btn).grid(row=0, column=1,
+                                                                                            padx=2)
+        ctk.CTkButton(top, text="A+", width=34, command=lambda: self._log_font(+1), **btn).grid(row=0, column=2,
+                                                                                            padx=(2, 8))
+        self.btn_big = ctk.CTkButton(top, text="⤢  Agrandir", width=110, command=self.toggle_log_big, **btn)
+        self.btn_big.grid(row=0, column=3, padx=4)
+        ctk.CTkButton(top, text="Exporter", width=80, command=self._export_log, **btn).grid(row=0, column=4, padx=4)
+        ctk.CTkButton(top, text="Effacer", width=80, command=lambda: self.logtxt.delete("1.0", "end"),
+                      **btn).grid(row=0, column=5, padx=4)
+        self.log_font_size = MONO_S[1]
         self.logtxt = tk.Text(self.logbox, bg=CARD, fg=TXT, font=MONO_S, relief="flat", wrap="word", height=11,
                               insertbackground=TXT, highlightthickness=0)
-        self.logtxt.grid(row=1, column=0, sticky="nsew", padx=(10, 0), pady=8)
+        self.logtxt.grid(row=2, column=0, sticky="nsew", padx=(10, 0), pady=8)
         sbar = ctk.CTkScrollbar(self.logbox, command=self.logtxt.yview)
-        sbar.grid(row=1, column=1, sticky="ns", pady=8, padx=(0, 4))
+        sbar.grid(row=2, column=1, sticky="ns", pady=8, padx=(0, 4))
         self.logtxt.configure(yscrollcommand=sbar.set)
         for tag, col in LOG_COLORS.items():
             self.logtxt.tag_configure(tag, foreground=col)
         self.log_visible = False
+        self.log_big = False
         self._set_status(None)
 
     def toggle_log(self):
+        if self.log_big:
+            self.toggle_log_big()
         self.log_visible = not self.log_visible
         if self.log_visible:
             self.logbox.grid(row=3, column=1, sticky="ew", padx=(0, 16), pady=(0, 12))
@@ -553,6 +569,39 @@ class App(ctk.CTk):
         else:
             self.logbox.grid_remove()
             self.btn_log.configure(text="Journal détaillé ▴")
+
+    def toggle_log_big(self):
+        """Journal en grand (à la place de la page) ou en bas de la fenêtre."""
+        if not self.log_visible:
+            self.toggle_log()
+        self.log_big = not self.log_big
+        self.logbox.grid_forget()
+        if self.log_big:
+            self.pages_host.grid_remove()
+            self.logbox.grid(row=1, column=1, sticky="nsew", padx=(0, 16), pady=(0, 4))
+            self.btn_big.configure(text="⤡  Réduire")
+        else:
+            self.logbox.grid(row=3, column=1, sticky="ew", padx=(0, 16), pady=(0, 12))
+            self.pages_host.grid()
+            self.btn_big.configure(text="⤢  Agrandir")
+        self.logtxt.see("end")
+
+    def _grip_start(self, e):
+        self._grip_y = e.y_root
+        self._grip_h = int(self.logtxt.cget("height"))
+
+    def _grip_move(self, e):
+        if self.log_big:
+            return
+        import tkinter.font as tkfont
+        line = max(10, tkfont.Font(font=self.logtxt.cget("font")).metrics("linespace"))
+        lines = self._grip_h + int((self._grip_y - e.y_root) / line)
+        max_lines = max(5, int((self.winfo_height() * 0.75) / line))
+        self.logtxt.configure(height=max(4, min(max_lines, lines)))
+
+    def _log_font(self, delta: int):
+        self.log_font_size = max(7, min(20, self.log_font_size + delta))
+        self.logtxt.configure(font=(MONO_S[0], self.log_font_size))
 
     def _set_status(self, act):
         txt = {None: ("●  Prêt", GREEN), "diag": ("●  Diagnostic en cours…", ORANGE),
@@ -638,19 +687,74 @@ class DiagPage(ctk.CTkScrollableFrame):
         self.app = app
         self.grid_columnconfigure(0, weight=1)
         page_title(self, "Diagnostic de la liaison",
-                   "Vérifie en quelques secondes que tout ce qui part d'un port arrive identique sur l'autre, "
-                   "dans les deux sens. Branchez les deux adaptateurs, choisissez les ports en haut, puis lancez.")
+                   "Branchez les deux adaptateurs et choisissez les ports en haut. Commencez par le test rapide : "
+                   "il dit tout de suite si la communication passe dans chaque sens.")
         top = card(self)
         top.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         top.grid_columnconfigure(0, weight=1)
-        self.topo = Redrawable(top, 160, lambda c: diagrams.draw_topology(
+        self.topo = Redrawable(top, 150, lambda c: diagrams.draw_topology(
             c, "path_both", f"Port A : {app.dev_a() or '?'}", f"Port B : {app.dev_b() or '?'}"))
-        self.topo.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        self.topo.grid(row=0, column=0, sticky="ew", padx=10, pady=8)
 
+        # ---- 1. test rapide ------------------------------------------------
+        qk = card(self)
+        qk.grid(row=3, column=0, sticky="ew", pady=(0, 16))
+        qk.grid_columnconfigure((0, 1), weight=1, uniform="q")
+        ctk.CTkLabel(qk, text="1.  Test rapide : la communication passe-t-elle ?", font=F(16, True),
+                     anchor="w").grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(14, 0))
+        qd = ctk.CTkLabel(qk, text=f"Envoie {diagnostic.QUICK_REPEAT} fois une trame courte et vérifie qu'elle "
+                                   "arrive identique de l'autre côté. Un sens, l'autre, ou les deux à la suite.",
+                          font=F(12), text_color=MUTED, anchor="w", justify="left", wraplength=900)
+        qd.grid(row=1, column=0, columnspan=2, sticky="w", padx=16)
+        autowrap(self, qd, lambda w: w - 50)
+        qb = ctk.CTkFrame(qk, fg_color="transparent")
+        qb.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(12, 8))
+        qb.grid_columnconfigure((0, 1, 2), weight=1)
+        self.q_btns = [
+            ctk.CTkButton(qb, text="Tester  A → B", font=F(15, True), height=46, fg_color=GREEN_D,
+                          hover_color="#166534", command=lambda: self.quick(["AB"])),
+            ctk.CTkButton(qb, text="Tester  B → A", font=F(15, True), height=46, fg_color=ACCENT_D,
+                          hover_color="#1d4ed8", command=lambda: self.quick(["BA"])),
+            ctk.CTkButton(qb, text="Tester les deux sens", font=F(15, True), height=46, fg_color=ACCENT,
+                          hover_color=ACCENT_D, command=lambda: self.quick(["AB", "BA"])),
+        ]
+        for i, b in enumerate(self.q_btns):
+            b.grid(row=0, column=i, sticky="ew", padx=(0 if i == 0 else 6, 0 if i == 2 else 6))
+        self.q_tiles = {}
+        for i, d in enumerate(("AB", "BA")):
+            t = ctk.CTkFrame(qk, fg_color=CARD2, corner_radius=10)
+            t.grid(row=3, column=i, sticky="nsew", padx=(16, 6) if i == 0 else (6, 16), pady=(4, 16))
+            t.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(t, text="A → B" if d == "AB" else "B → A", font=F(15, True),
+                         text_color="#4ade80" if d == "AB" else "#60a5fa").grid(row=0, column=0, sticky="w",
+                                                                                padx=12, pady=(10, 0))
+            ports = ctk.CTkLabel(t, text="", font=F(11), text_color=MUTED)
+            ports.grid(row=0, column=1, sticky="w", padx=6, pady=(10, 0))
+            status = ctk.CTkLabel(t, text="—", font=F(22, True), text_color=MUTED)
+            status.grid(row=0, column=2, sticky="e", padx=12, pady=(10, 0))
+            summ = ctk.CTkLabel(t, text="pas encore testé", font=F(12), text_color=MUTED, anchor="w",
+                                justify="left", wraplength=420)
+            summ.grid(row=1, column=0, columnspan=3, sticky="ew", padx=12)
+            autowrap(self, summ, lambda w: w / 2 - 70)
+            detail = ctk.CTkLabel(t, text="", font=MONO_S, text_color=MUTED, anchor="w", justify="left",
+                                  wraplength=420)
+            detail.grid(row=2, column=0, columnspan=3, sticky="ew", padx=12, pady=(2, 10))
+            autowrap(self, detail, lambda w: w / 2 - 70)
+            self.q_tiles[d] = (ports, status, summ, detail)
+
+        # ---- 2. diagnostic complet -----------------------------------------
+        ctk.CTkLabel(self, text="2.  Diagnostic complet", font=F(16, True), anchor="w").grid(
+            row=4, column=0, sticky="w", padx=4)
+        dd = ctk.CTkLabel(self, text="Six vérifications à la suite (environ 10 s) : les deux sens, toutes les "
+                                     "valeurs d'octets, des trames Modbus, la charge continue et le temps de "
+                                     "transfert. Verdict et rapport à la fin.",
+                          font=F(12), text_color=MUTED, anchor="w", justify="left", wraplength=900)
+        dd.grid(row=5, column=0, sticky="w", padx=4, pady=(0, 10))
+        autowrap(self, dd, lambda w: w - 30)
         act = ctk.CTkFrame(self, fg_color="transparent")
-        act.grid(row=3, column=0, sticky="ew", pady=(0, 12))
+        act.grid(row=6, column=0, sticky="ew", pady=(0, 12))
         act.grid_columnconfigure(1, weight=1)
-        self.btn = ctk.CTkButton(act, text="▶   Lancer le diagnostic", font=F(16, True), height=54, width=290,
+        self.btn = ctk.CTkButton(act, text="▶   Lancer le diagnostic complet", font=F(15, True), height=54, width=300,
                                  corner_radius=10, fg_color=ACCENT, hover_color=ACCENT_D, command=self.start)
         self.btn.grid(row=0, column=0, sticky="w")
         self.verdict = ctk.CTkLabel(act, text="Pas encore lancé", font=F(16, True), height=54, corner_radius=10,
@@ -658,7 +762,7 @@ class DiagPage(ctk.CTkScrollableFrame):
         self.verdict.grid(row=0, column=1, sticky="ew", padx=(12, 0))
 
         self.list = card(self)
-        self.list.grid(row=4, column=0, sticky="ew")
+        self.list.grid(row=7, column=0, sticky="ew")
         self.list.grid_columnconfigure(1, weight=1)
         self.rows = {}
         self.steps = diagnostic.new_steps()
@@ -686,7 +790,7 @@ class DiagPage(ctk.CTkScrollableFrame):
             self.rows[st.key] = (ic, val, adv)
 
         bot = ctk.CTkFrame(self, fg_color="transparent")
-        bot.grid(row=5, column=0, sticky="ew", pady=12)
+        bot.grid(row=8, column=0, sticky="ew", pady=12)
         self.btn_report = ctk.CTkButton(bot, text="Enregistrer le rapport", height=38, fg_color=CARD2,
                                         hover_color=LINE, state="disabled", command=self._report)
         self.btn_report.grid(row=0, column=0, sticky="w")
@@ -696,6 +800,69 @@ class DiagPage(ctk.CTkScrollableFrame):
 
     def on_ports(self):
         self.topo.redraw()
+        a, b = self.app.dev_a() or "?", self.app.dev_b() or "?"
+        self.q_tiles["AB"][0].configure(text=f"{a} → {b}")
+        self.q_tiles["BA"][0].configure(text=f"{b} → {a}")
+
+    # -- test rapide ---------------------------------------------------------
+    def quick(self, dirs):
+        if self.app.activity == "diag":
+            return
+        ports = self.app.get_ports()
+        s = self.app.get_settings()
+        if not ports or not s or not self.app.claim("diag"):
+            return
+        for b in self.q_btns:
+            b.configure(state="disabled")
+        self.btn.configure(state="disabled")
+        for d in dirs:
+            ports_l, status, summ, detail = self.q_tiles[d]
+            status.configure(text="…", text_color=ORANGE)
+            summ.configure(text="en attente…", text_color=MUTED)
+            detail.configure(text="")
+        ctx = self.app.make_ctx(ports, s)
+        self.app.log("")
+        self.app.log(f"═══ Test rapide — A = {ports[0]}, B = {ports[1]}, {s.describe()} ═══", "title")
+        emit = self.app.emit
+
+        def work():
+            for d in dirs:
+                emit("diag_qstart", d)
+                try:
+                    res = diagnostic.quick(ctx, d)
+                except engine.StopTest:
+                    break
+                except core.EchoError as e:
+                    res = {"dir": d, "ok": False, "count": "—", "summary": f"Écho local : {e}", "advice": [
+                        "Désactivez l'écho local dans Réglages si l'adaptateur ne renvoie pas sa propre émission."],
+                        "sent": "", "received": ""}
+                except (serial.SerialException, OSError) as e:
+                    res = {"dir": d, "ok": False, "count": "—", "summary": f"Port inutilisable : {e}", "advice": [
+                        "Le port est-il utilisé par un autre logiciel ? L'adaptateur est-il branché ?"],
+                        "sent": "", "received": ""}
+                except Exception as e:   # noqa
+                    res = {"dir": d, "ok": False, "count": "—", "summary": f"Erreur : {e!r}", "advice": [],
+                           "sent": "", "received": ""}
+                emit("diag_quick", res)
+            emit("diag_qdone", None)
+
+        self.app.run_worker("diag", work)
+
+    def _show_quick(self, r):
+        ports_l, status, summ, detail = self.q_tiles[r["dir"]]
+        if r["ok"]:
+            status.configure(text="✓  OK", text_color=GREEN)
+            summ.configure(text=r["summary"], text_color=TXT)
+            detail.configure(text=f"Envoyé : {r['sent']}\nReçu   : {r['received']}", text_color=MUTED)
+        else:
+            status.configure(text="✗  ÉCHEC", text_color=RED)
+            summ.configure(text=r["summary"], text_color="#fca5a5")
+            txt = (f"Envoyé : {r['sent']}\nReçu   : {r['received']}\n" if r["sent"] else "")
+            if r["advice"]:
+                txt += "À vérifier :\n" + "\n".join("  •  " + a for a in r["advice"])
+            detail.configure(text=txt, text_color="#fcd34d")
+        self.app.log(f"Test rapide {r.get('arrow', r['dir'])} : {'OK' if r['ok'] else 'ÉCHEC'} — {r['summary']}",
+                     "ok" if r["ok"] else "err")
 
     def _reset_rows(self):
         for st in self.steps:
@@ -728,6 +895,8 @@ class DiagPage(ctk.CTkScrollableFrame):
         self.verdict.configure(text="  Diagnostic en cours…", fg_color=CARD2, text_color=ORANGE)
         self.btn.configure(text="■   Arrêter", fg_color=RED_D, hover_color="#991b1b")
         self.btn_report.configure(state="disabled")
+        for b in self.q_btns:
+            b.configure(state="disabled")
         ctx = self.app.make_ctx(ports, s)
         steps = diagnostic.new_steps()
         self.app.log("")
@@ -753,7 +922,18 @@ class DiagPage(ctk.CTkScrollableFrame):
         self.app.run_worker("diag", work)
 
     def handle(self, kind, p):
-        if kind == "diag_step":
+        if kind == "diag_qstart":
+            self.q_tiles[p][1].configure(text="◌", text_color=ORANGE)
+            self.q_tiles[p][2].configure(text="test en cours…", text_color=ORANGE)
+        elif kind == "diag_quick":
+            self._show_quick(p)
+        elif kind == "diag_qdone":
+            for b in self.q_btns:
+                b.configure(state="normal")
+            self.btn.configure(state="normal")
+            self.app.progress.set(0)
+            self.app.release("diag")
+        elif kind == "diag_step":
             self._show_step(p)
         elif kind == "diag_done":
             steps, err, t0, sdesc = p
@@ -779,9 +959,11 @@ class DiagPage(ctk.CTkScrollableFrame):
                                        text_color="#ffffff")
             self.app.log(f"═══ Verdict : {'arrêté' if err else v} ═══", "ok" if v == OK and not err else "err")
             self.results = diagnostic.to_results(steps, sdesc, t0, time.time() - t0)
-            self.btn.configure(text="▶   Relancer le diagnostic", state="normal", fg_color=ACCENT,
+            self.btn.configure(text="▶   Relancer le diagnostic complet", state="normal", fg_color=ACCENT,
                                hover_color=ACCENT_D)
             self.btn_report.configure(state="normal")
+            for b in self.q_btns:
+                b.configure(state="normal")
             self.app.progress.set(0)
             self.app.release("diag")
 
@@ -1688,7 +1870,8 @@ def smoke(out_json: str, shots_dir: Optional[str] = None, keep_cfg: bool = False
         res["diag_steps"] = {k: v[1].cget("text") for k, v in P["diag"].rows.items()}
         res["stream"] = {k: v.cget("text") for k, v in P["stream"].cnt.items()}
         res["manual"] = P["manual"].result.cget("text").strip()
-        res["ok"] = ("Liaison OK" in res["diag_verdict"] and "IDENTIQUE" in res["manual"]
+        res["ok"] = (all("OK" in v for v in res.get("quick", {"x": ""}).values()) and
+                     "Liaison OK" in res["diag_verdict"] and "IDENTIQUE" in res["manual"]
                      and int(res["stream"]["ok"]) > 0 and res["stream"]["bad"] == "0" and not res["errors"])
         with open(out_json, "w", encoding="utf-8") as f:
             json.dump(res, f, ensure_ascii=False, indent=1)
@@ -1700,6 +1883,12 @@ def smoke(out_json: str, shots_dir: Optional[str] = None, keep_cfg: bool = False
 
     def start():
         shot("accueil")
+        P["diag"].quick(["AB", "BA"])
+        app.after(300, when_idle(after_quick))
+
+    def after_quick():
+        res["quick"] = {d: P["diag"].q_tiles[d][1].cget("text") for d in ("AB", "BA")}
+        shot("test_rapide")
         P["diag"].start()
         app.after(300, when_idle(after_diag))
 
@@ -1721,6 +1910,9 @@ def smoke(out_json: str, shots_dir: Optional[str] = None, keep_cfg: bool = False
             (lambda: shot("aide"), 300),
             (lambda: (app.show("diag"), app.toggle_log()), 900),
             (lambda: shot("journal"), 300),
+            (lambda: app.toggle_log_big(), 700),
+            (lambda: shot("journal_agrandi"), 300),
+            (lambda: app.toggle_log_big(), 500),
             (lambda: app.open_settings(), 1200),
             (lambda: shot("reglages"), 300),
         ])

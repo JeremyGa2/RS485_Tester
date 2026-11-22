@@ -83,6 +83,50 @@ def _exchange_all(ctx: TestContext, items, dirs) -> core.CompareResult:
     return worst
 
 
+QUICK_REPEAT = 5
+
+
+def quick(ctx: TestContext, d: str) -> dict:
+    """Test rapide d'un sens : la même trame envoyée 5 fois, chaque réception comparée."""
+    s = ctx.s
+    mask = (1 << s.bytesize) - 1
+    frame = bytes(x & mask for x in core.modbus_frame(b"\x55\xAA\x00\xFF\x0F\xF0RS485"))
+    arrow = "A → B" if d == "AB" else "B → A"
+    src_name, dst_name = ctx.names(d)
+    ctx.log(f"── Test rapide {arrow} ({src_name} → {dst_name}) ──", "title")
+    a, b = ctx.open_pair()
+    ok = 0
+    bad = None
+    last_rx = b""
+    times = []
+    try:
+        src, dst = (a, b) if d == "AB" else (b, a)
+        for _ in range(QUICK_REPEAT):
+            ctx.check_stop()
+            cmp, rx, t0, tf, tl = engine.exchange(ctx, src, dst, frame, s, arrow)
+            last_rx = rx
+            if cmp.ok:
+                ok += 1
+                if tl:
+                    times.append(tl - t0)
+            elif bad is None:
+                bad = cmp
+            time.sleep(0.01)
+    finally:
+        a.close()
+        b.close()
+    res = {"dir": d, "arrow": arrow, "src": src_name, "dst": dst_name, "ok": ok == QUICK_REPEAT,
+           "count": f"{ok}/{QUICK_REPEAT}", "sent": core.to_hex(frame), "received": core.to_hex(last_rx, 24) or "(rien)",
+           "summary": "", "advice": []}
+    if res["ok"]:
+        med = sorted(times)[len(times) // 2] if times else 0
+        res["summary"] = f"{QUICK_REPEAT} trames sur {QUICK_REPEAT} reçues identiques · {fmt_time(med)} par trame"
+    else:
+        res["summary"] = f"{ok}/{QUICK_REPEAT} trames correctes — {bad.summary()}"
+        res["advice"] = _advice_for(bad)
+    return res
+
+
 def run(ctx: TestContext, steps: List[Step], on_step: Callable[[Step], None]) -> List[Step]:
     s = ctx.s
     mask = (1 << s.bytesize) - 1
