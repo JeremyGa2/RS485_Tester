@@ -119,8 +119,11 @@ class App(ctk.CTk):
         super().__init__(fg_color=BG)
         self.title(f"{APP_NAME} {APP_VERSION} — Diagnostic RS485")
         self._set_icon()
-        self.geometry("1320x860")
-        self.minsize(1100, 720)
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        self.geometry(f"{min(1320, sw - 40)}x{min(860, sh - 90)}+10+10")
+        self.minsize(min(980, sw - 40), min(640, sh - 90))
+        if IS_WIN and (sw < 1400 or sh < 900):
+            self.after(50, lambda: self.state("zoomed"))     # petit écran : plein écran
         self.cfg = self._load_cfg()
         self.q: "queue.Queue" = queue.Queue()
         self.port_infos: Dict[str, core.PortInfo] = {}
@@ -226,7 +229,7 @@ class App(ctk.CTk):
                      text_color=MUTED).grid(row=1, column=0, sticky="w", padx=20, pady=(0, 22))
         self.nav = {}
         items = [("diag", "✓   Diagnostic"), ("stream", "∿   Envoi continu"), ("manual", "⇄   Envoi manuel"),
-                 ("adv", "⚗   Tests avancés"), ("help", "?    Aide")]
+                 ("adv", "◇   Tests avancés"), ("help", "?    Aide")]
         for i, (key, text) in enumerate(items):
             b = ctk.CTkButton(sb, text=text, anchor="w", height=42, width=190, corner_radius=8, font=F(14),
                               fg_color="transparent", hover_color="#1f2430", text_color=TXT,
@@ -757,8 +760,8 @@ class StreamPage(ctk.CTkScrollableFrame):
         for key, name, desc in PATTERNS:
             ctk.CTkRadioButton(left, text=name, value=key, variable=self.v_pat, font=F(13, True),
                                command=self.refresh).grid(row=r, column=0, sticky="w", padx=20, pady=(6, 0))
-            ctk.CTkLabel(left, text=desc, font=F(12), text_color=MUTED).grid(row=r + 1, column=0, sticky="w",
-                                                                             padx=50)
+            ctk.CTkLabel(left, text=desc, font=F(12), text_color=MUTED, anchor="w", justify="left",
+                         wraplength=420).grid(row=r + 1, column=0, sticky="w", padx=50)
             r += 2
         cu = ctk.CTkFrame(left, fg_color="transparent")
         cu.grid(row=r, column=0, sticky="ew", padx=48, pady=(4, 0))
