@@ -109,10 +109,11 @@ class TestSimulated(unittest.TestCase):
         self.assertNotEqual(rx, b"hello")
 
     def test_turnaround_found(self):
-        sim(turnaround_ms=5.0, latency_ms=0.2)
-        res, _ = run("turnaround", delays_ms=[20, 10, 2, 0], reps=5)
+        # marges larges devant la gigue d'ordonnancement d'une machine chargée (plusieurs ms)
+        sim(turnaround_ms=50.0, latency_ms=0.2)
+        res, _ = run("turnaround", delays_ms=[100, 70, 20, 0], reps=5)
         self.assertEqual(res.status, engine.WARN, res.summary)
-        self.assertEqual(res.measures["délai_min_fiable_ms"], 10)
+        self.assertEqual(res.measures["délai_min_fiable_ms"], 70)
         sim()
 
     def test_sweep(self):
