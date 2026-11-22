@@ -273,19 +273,43 @@ class App(ctk.CTk):
                                     command=lambda _v: self._ports_changed())
         self.cb_b.grid(row=0, column=4)
         ctk.CTkButton(inner, text="↻", width=32, fg_color=CARD2, hover_color=LINE,
-                      command=lambda: self._refresh_ports(force=True)).grid(row=0, column=5, padx=(6, 22))
-        ctk.CTkLabel(inner, text="Vitesse", font=F(13, True)).grid(row=0, column=6, padx=(0, 6))
+                      command=lambda: self._refresh_ports(force=True)).grid(row=0, column=5, padx=(6, 0))
+        # vitesse + format : à droite des ports, ou sur une 2e ligne si la fenêtre est étroite
+        sp = ctk.CTkFrame(h, fg_color="transparent")
+        self._speed_box = sp
+        ctk.CTkLabel(sp, text="Vitesse", font=F(13, True)).grid(row=0, column=0, padx=(0, 6))
         self.v_baud = tk.StringVar(value=str(c.get("baud", "9600")))
-        ctk.CTkComboBox(inner, width=120, values=[str(b) for b in core.BAUD_PRESETS], variable=self.v_baud,
-                        command=lambda _v: self._settings_changed()).grid(row=0, column=7)
-        ctk.CTkLabel(inner, text="bauds", text_color=MUTED).grid(row=0, column=8, padx=(4, 18))
-        ctk.CTkLabel(inner, text="Format", font=F(13, True)).grid(row=0, column=9, padx=(0, 6))
+        ctk.CTkComboBox(sp, width=115, values=[str(b) for b in core.BAUD_PRESETS], variable=self.v_baud,
+                        command=lambda _v: self._settings_changed()).grid(row=0, column=1)
+        ctk.CTkLabel(sp, text="bauds", text_color=MUTED).grid(row=0, column=2, padx=(4, 16))
+        ctk.CTkLabel(sp, text="Format", font=F(13, True)).grid(row=0, column=3, padx=(0, 6))
         self.v_fmt = tk.StringVar(value=c.get("fmt", "8N1") if c.get("fmt") in FORMATS else "8N1")
-        ctk.CTkComboBox(inner, width=80, values=FORMATS, variable=self.v_fmt, state="readonly",
-                        command=lambda _v: self._settings_changed()).grid(row=0, column=10)
+        ctk.CTkComboBox(sp, width=78, values=FORMATS, variable=self.v_fmt, state="readonly",
+                        command=lambda _v: self._settings_changed()).grid(row=0, column=4)
         self.v_baud.trace_add("write", lambda *_: self._settings_changed())
-        self.lab_info = ctk.CTkLabel(h, text="", font=F(12), text_color=MUTED, anchor="w")
-        self.lab_info.grid(row=1, column=0, sticky="ew", padx=16, pady=(4, 10))
+        self.lab_info = ctk.CTkLabel(h, text="", font=F(12), text_color=MUTED, anchor="w", justify="left",
+                                     wraplength=900)
+        self.lab_info.grid(row=2, column=0, columnspan=2, sticky="ew", padx=16, pady=(4, 10))
+        self._speed_wide = None
+        h.bind("<Configure>", lambda e: self._layout_header(e.width))
+        self._layout_header(1400)
+
+    def _layout_header(self, width: int):
+        try:
+            scale = ctk.ScalingTracker.get_widget_scaling(self.lab_info)
+        except Exception:   # noqa
+            scale = 1.0
+        logical = width / scale                       # largeur en unités customtkinter
+        wide = logical >= 1060
+        self.lab_info.configure(wraplength=max(400, int(logical) - 40))
+        if wide == self._speed_wide:
+            return
+        self._speed_wide = wide
+        self._speed_box.grid_forget()
+        if wide:
+            self._speed_box.grid(row=0, column=1, sticky="e", padx=(22, 14), pady=(10, 0))
+        else:
+            self._speed_box.grid(row=1, column=0, sticky="w", padx=14, pady=(8, 0))
 
     def _label(self, p: core.PortInfo) -> str:
         return f"{p.device} · {p.description}" if p.description and p.description != p.device else p.device
@@ -761,18 +785,18 @@ class StreamPage(ctk.CTkScrollableFrame):
             ctk.CTkRadioButton(left, text=name, value=key, variable=self.v_pat, font=F(13, True),
                                command=self.refresh).grid(row=r, column=0, sticky="w", padx=20, pady=(6, 0))
             ctk.CTkLabel(left, text=desc, font=F(12), text_color=MUTED, anchor="w", justify="left",
-                         wraplength=420).grid(row=r + 1, column=0, sticky="w", padx=50)
+                         wraplength=330).grid(row=r + 1, column=0, sticky="w", padx=50)
             r += 2
         cu = ctk.CTkFrame(left, fg_color="transparent")
-        cu.grid(row=r, column=0, sticky="ew", padx=48, pady=(4, 0))
-        cu.grid_columnconfigure(1, weight=1)
-        ctk.CTkSegmentedButton(cu, values=["HEX", "Texte"], variable=self.v_mode, width=110,
-                               command=lambda _v: self.refresh()).grid(row=0, column=0, padx=(0, 6))
-        self.ent = ctk.CTkEntry(cu, textvariable=self.v_text, font=MONO)
-        self.ent.grid(row=0, column=1, sticky="ew")
+        cu.grid(row=r, column=0, sticky="ew", padx=(48, 20), pady=(4, 0))
+        cu.grid_columnconfigure(0, weight=1)
+        self.ent = ctk.CTkEntry(cu, textvariable=self.v_text, font=MONO, height=34)
+        self.ent.grid(row=0, column=0, columnspan=2, sticky="ew")
         self.ent.bind("<KeyRelease>", lambda _e: self.refresh())
+        ctk.CTkSegmentedButton(cu, values=["HEX", "Texte"], variable=self.v_mode, width=110,
+                               command=lambda _v: self.refresh()).grid(row=1, column=0, sticky="w", pady=(6, 0))
         ctk.CTkCheckBox(cu, text="+ CRC Modbus", variable=self.v_crc, command=self.refresh).grid(
-            row=0, column=2, padx=(8, 0))
+            row=1, column=1, sticky="e", pady=(6, 0))
         self.lab_err = ctk.CTkLabel(left, text="", text_color=RED, font=F(12))
         self.lab_err.grid(row=r + 1, column=0, sticky="w", padx=50)
         ctk.CTkLabel(left, text="2.  Sens", font=F(15, True)).grid(row=r + 2, column=0, sticky="w", padx=16,
@@ -797,7 +821,7 @@ class StreamPage(ctk.CTkScrollableFrame):
         self.wave.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=6)
         self.tiles = {}
         for i, (k, lab) in enumerate([("bit", "Durée d'un bit"), ("frame", "Durée d'une trame"),
-                                      ("freq", "Fréquence"), ("rate", "Répétition")]):
+                                      ("freq", "Fréquence du carré"), ("rate", "Période de répétition")]):
             t = ctk.CTkFrame(right, fg_color=CARD2, corner_radius=10)
             t.grid(row=2 + i // 2, column=i % 2, sticky="ew", padx=(16 if i % 2 == 0 else 6, 16 if i % 2 else 6),
                    pady=5)
@@ -807,7 +831,7 @@ class StreamPage(ctk.CTkScrollableFrame):
             n = ctk.CTkLabel(t, text="", font=F(11), text_color=MUTED)
             n.pack(anchor="w", padx=12, pady=(0, 8))
             self.tiles[k] = (v, n)
-        ctk.CTkLabel(right, justify="left", anchor="w", font=F(12), text_color="#cbd5e1", wraplength=520, text=(
+        ctk.CTkLabel(right, justify="left", anchor="w", font=F(12), text_color="#cbd5e1", wraplength=400, text=(
             "Réglage conseillé : déclenchement sur front DESCENDANT (le bit de start), mode Normal.\n"
             "Sonde 1 à l'entrée du module 1, sonde 2 à la sortie du module 2 : les deux signaux doivent être "
             "identiques, simplement décalés dans le temps.")).grid(row=4, column=0, columnspan=2, sticky="ew",
@@ -881,13 +905,13 @@ class StreamPage(ctk.CTkScrollableFrame):
         self.tiles["frame"][1].configure(text=f"{n} octets × {s.bits_per_char():g} bits ({s.format_str()})")
         if self.v_pat.get() == "square":
             self.tiles["freq"][0].configure(text=f"{s.baudrate / 2:,.0f} Hz".replace(",", " "))
-            self.tiles["freq"][1].configure(text="signal carré pendant la trame")
+            self.tiles["freq"][1].configure(text="vitesse ÷ 2")
         else:
             self.tiles["freq"][0].configure(text="—")
             self.tiles["freq"][1].configure(text="(motif non périodique)")
         if n:
-            self.tiles["rate"][0].configure(text=f"toutes les {fmt_time(period)}")
-            self.tiles["rate"][1].configure(text="sans silence entre trames" if pause == 0 else
+            self.tiles["rate"][0].configure(text=fmt_time(period))
+            self.tiles["rate"][1].configure(text="trames collées" if pause == 0 else
                                             f"dont {fmt_time(pause)} de silence")
 
     def toggle(self):
